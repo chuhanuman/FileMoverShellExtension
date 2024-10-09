@@ -1,21 +1,19 @@
-﻿# CMakeList.txt : CMake project for FileMoverShellExtension, include source and define
-# project specific logic here.
-#
-cmake_minimum_required (VERSION 3.8)
+﻿cmake_minimum_required(VERSION 3.14)
+project(FileMoverShellExtension)
 
-# Enable Hot Reload for MSVC compilers if supported.
-if (POLICY CMP0141)
-  cmake_policy(SET CMP0141 NEW)
-  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
-endif()
+set(CMAKE_CXX_STANDARD 17)
 
-project ("FileMoverShellExtension")
+set(CONTEXT_MENU_SOURCE_FILES
+    src/contextMenu/dll.cpp src/contextMenu/dll.def
+    src/contextMenu/contextMenu.h src/contextMenu/contextMenu.cpp
+    src/contextMenu/contextMenuFactory.h src/contextMenu/contextMenuFactory.cpp
+)
+add_library(fileMover SHARED ${CONTEXT_MENU_SOURCE_FILES})
+target_link_libraries(fileMover shlwapi)
 
-# Add source to this project's executable.
-add_executable (FileMoverShellExtension "FileMoverShellExtension.cpp" "FileMoverShellExtension.h")
-
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET FileMoverShellExtension PROPERTY CXX_STANDARD 20)
-endif()
-
-# TODO: Add tests and install targets if needed.
+set(SETUP_SOURCE_FILES
+    src/setup.cpp
+    src/config.h
+    src/utils.h src/utils.cpp
+)
+add_executable(setup ${SETUP_SOURCE_FILES})
