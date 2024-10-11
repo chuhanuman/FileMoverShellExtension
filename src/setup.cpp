@@ -1,15 +1,61 @@
-#include <windows.h>
-
 #include <iostream>
+
+#include "windows.h"
+#include "shlobj_core.h"
 
 #include "config.h"
 #include "utils.h"
 
 int main() {
+	char temp[MAX_PATH];
+	long errorCode = SHGetFolderPath(0, CSIDL_APPDATA, NULL, 0, temp);
+	if (errorCode != ERROR_SUCCESS) {
+		printWindowsError(errorCode);
+		return -1;
+	}
+
+	std::string settingsPath(temp);
+	settingsPath.append("\\");
+	settingsPath.append(config::NAME);
+	bool success = CreateDirectory(settingsPath.c_str(), NULL);
+	if (!success && GetLastError() != ERROR_ALREADY_EXISTS) {
+		printWindowsError(GetLastError());
+		return -1;
+	}
+
+	settingsPath.append("\\");
+	settingsPath.append(config::SETTINGS_FILENAME);
+	HANDLE settingsFile = CreateFile(settingsPath.c_str(),
+									 GENERIC_WRITE,
+									 0,
+									 NULL,
+									 CREATE_ALWAYS,
+									 FILE_ATTRIBUTE_NORMAL,
+									 NULL);
+	if (settingsFile == INVALID_HANDLE_VALUE) {
+		printWindowsError(GetLastError());
+		return -1;
+	}
+
+	success = WriteFile(settingsFile,
+					    config::DEFAULT_SETTING,
+						strlen(config::DEFAULT_SETTING),
+						NULL,
+						NULL);
+	if (!success) {
+		printWindowsError(GetLastError());
+		return -1;
+	}
+
+	if (CloseHandle(settingsFile) == 0) {
+		printWindowsError(GetLastError());
+		return -1;
+	}
+
 	HKEY guidKey;
 	std::string guidPath = config::GUID_PREFIX_PATH;
 	guidPath.append(config::GUID);
-	long errorCode = RegCreateKeyEx(HKEY_CLASSES_ROOT,
+	errorCode = RegCreateKeyEx(HKEY_CLASSES_ROOT,
 									guidPath.c_str(), 
 									0, 
 									NULL,

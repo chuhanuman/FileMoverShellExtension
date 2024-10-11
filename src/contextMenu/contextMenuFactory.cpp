@@ -2,6 +2,16 @@
 
 #include "contextMenu.h"
 
+extern long globalReferenceCount;
+
+ContextMenuFactory::ContextMenuFactory() {
+	InterlockedIncrement(&globalReferenceCount);
+}
+
+ContextMenuFactory::~ContextMenuFactory() {
+	InterlockedDecrement(&globalReferenceCount);
+}
+
 HRESULT ContextMenuFactory::QueryInterface(const IID& riid, void** ppvObject) {
 	if (riid == IID_IUnknown || riid == IID_IClassFactory) {
 		*ppvObject = static_cast<IClassFactory*>(this);

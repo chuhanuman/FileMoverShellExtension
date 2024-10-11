@@ -5,6 +5,10 @@
 
 class ContextMenuFactory : public IClassFactory {
 public:
+	ContextMenuFactory();
+
+	~ContextMenuFactory();
+
 	HRESULT QueryInterface(REFIID riid, void** ppvObject) override;
 
 	ULONG AddRef() override;
