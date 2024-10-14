@@ -2,7 +2,7 @@
 #define CONFIG_H
 
 namespace config {
-	const auto NAME = "FileMoverShellExtension";
+	const auto PROGRAM_NAME = "FileMoverShellExtension";
 	const auto SETTINGS_FILENAME = "settings.txt";
 	const auto DEFAULT_SETTING = "\\..";
 	const auto GUID = "{2DF05694-A27D-4F6A-911F-887B6D19C7BB}";

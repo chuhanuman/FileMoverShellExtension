@@ -7,17 +7,20 @@
 #include "utils.h"
 
 int main() {
-	char temp[MAX_PATH];
-	long errorCode = SHGetFolderPath(0, CSIDL_APPDATA, NULL, 0, temp);
+	char path[MAX_PATH];
+	bool success;
+	long errorCode;
+
+	errorCode = SHGetFolderPath(0, CSIDL_APPDATA, NULL, 0, path);
 	if (errorCode != ERROR_SUCCESS) {
 		printWindowsError(errorCode);
 		return -1;
 	}
 
-	std::string settingsPath(temp);
+	std::string settingsPath(path);
 	settingsPath.append("\\");
-	settingsPath.append(config::NAME);
-	bool success = CreateDirectory(settingsPath.c_str(), NULL);
+	settingsPath.append(config::PROGRAM_NAME);
+	success = CreateDirectory(settingsPath.c_str(), NULL);
 	if (!success && GetLastError() != ERROR_ALREADY_EXISTS) {
 		printWindowsError(GetLastError());
 		return -1;
@@ -73,8 +76,8 @@ int main() {
 							  NULL, 
 							  0, 
 							  REG_SZ, 
-							  reinterpret_cast<const BYTE*>(config::NAME), 
-							  strlen(config::NAME) + 1);
+							  reinterpret_cast<const BYTE*>(config::PROGRAM_NAME), 
+							  strlen(config::PROGRAM_NAME) + 1);
 	if (errorCode != ERROR_SUCCESS) {
 		printWindowsError(errorCode);
 		return -1;
@@ -120,7 +123,7 @@ int main() {
 
 	HKEY shellExtensionKey;
 	std::string shellExtensionPath = config::CONTEXT_MENU_HANDLER_PREFIX_PATH;
-	shellExtensionPath.append(config::NAME);
+	shellExtensionPath.append(config::PROGRAM_NAME);
 	errorCode = RegCreateKeyEx(HKEY_CLASSES_ROOT,
 							   shellExtensionPath.c_str(), 
 							   0, 

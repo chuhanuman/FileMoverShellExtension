@@ -2,8 +2,9 @@
 
 #include <fstream>
 
-#include "shlobj_core.h"
 #include "shlwapi.h"
+
+#include "..\config.h"
 
 HRESULT ContextMenu::QueryInterface(REFIID riid, void** ppvObject) {
 	if (riid == IID_IUnknown || riid == IID_IShellExtInit) {
@@ -47,7 +48,7 @@ HRESULT ContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu, UINT idCmdFir
 		return S_OK;
 	}
 
-	findFolders();
+	loadDataObject();
 
 	if (folders.empty()) {
 		return S_OK;
@@ -90,26 +91,117 @@ HRESULT ContextMenu::GetCommandString(UINT_PTR idCmd, UINT uType, UINT* pReserve
 	return -1;
 }
 
-void ContextMenu::findFolders() {
+void ContextMenu::loadDataObject() {
+	parentFolderPath.clear();
 	folders.clear();
+	files.clear();
 
-	char temp[MAX_PATH];
-	long errorCode = SHGetFolderPath(0, CSIDL_APPDATA, NULL, 0, temp);
+	const auto clipFormat = static_cast<CLIPFORMAT>(RegisterClipboardFormat(CFSTR_SHELLIDLIST));
+	FORMATETC dataFormat{clipFormat, NULL, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
+	STGMEDIUM stgMedium;
+	if (dataObject->GetData(&dataFormat, &stgMedium) != S_OK) {
+		return;
+	}
+
+	const auto cida = static_cast<LPIDA>(GlobalLock(stgMedium.hGlobal));
+	if (cida != NULL) {
+		loadFiles(cida);
+
+		if (!parentFolderPath.empty()) {
+			findFolders();
+		}
+
+		GlobalUnlock(stgMedium.hGlobal);
+	}
+
+	ReleaseStgMedium(&stgMedium);
+
+	std::ofstream fout("C:\\Users\\chuha\\source\\repos\\FileMoverShellExtension\\out\\build\\x64-debug\\log.txt", std::ios::app);
+	fout << "Folder List\n";
+	for (const std::string& folder : folders) {
+		fout << "Folder: " << folder << '\n';
+	}
+	fout << "File List\n";
+	for (const std::string& file : files) {
+		fout << "File: " << file << '\n';
+	}
+	fout.close();
+}
+
+void ContextMenu::loadFiles(const LPIDA cida) {
+	char path[MAX_PATH];
+	bool success;
+
+	const auto fileList = reinterpret_cast<LPBYTE>(cida);
+	PCIDLIST_ABSOLUTE parentIdList = nullptr;
+	for (unsigned int i = 0; i < cida->cidl + 1; i++) {
+		auto itemIdList = reinterpret_cast<PCIDLIST_ABSOLUTE>(fileList + cida->aoffset[i]);
+		if (i == 0) {
+			parentIdList = itemIdList;
+		} else {
+			itemIdList = ILCombine(parentIdList, itemIdList);
+		}
+
+		success = SHGetPathFromIDList(itemIdList, path);
+		if (!success) {
+			return;
+		}
+
+		if (i == 0) {
+			parentFolderPath = path;
+		} else {
+			files.emplace_back(path);
+		}
+	}
+}
+
+void ContextMenu::findFolders() {
+	char path[MAX_PATH];
+	bool success;
+	long errorCode;
+
+	errorCode = SHGetFolderPath(0, CSIDL_APPDATA, NULL, 0, path);
 	if (errorCode != ERROR_SUCCESS) {
 		return;
 	}
 
-	folders.push_back("a");
-	folders.push_back("b");
-	folders.push_back("c");
+	std::string settingsPath(path);
+	settingsPath.append("\\");
+	settingsPath.append(config::PROGRAM_NAME);
+	settingsPath.append("\\");
+	settingsPath.append(config::SETTINGS_FILENAME);
 
-	std::ofstream fout("C:\\Users\\chuha\\source\\repos\\FileMoverShellExtension\\out\\build\\x64-debug\\log.txt", std::ios::app);
-	fout << "In findFolders\n";
-	for (const std::string& folder : folders) {
-		fout << "Folder: " << folder << '\n';
+	std::ifstream fin(settingsPath);
+	std::string setting;
+	if (fin.fail()) {
+		setting = config::DEFAULT_SETTING;
+	} else {
+		fin >> setting;
 	}
-	fout.close();
+	fin.close();
+
+	std::string destinationPath = parentFolderPath;
+	destinationPath.append(setting);
+
+	WIN32_FIND_DATAA fileData;
+	HANDLE searcher = FindFirstFile(destinationPath.c_str(), &fileData);
+	success = (searcher != INVALID_HANDLE_VALUE);
+
+	while (success) {
+		if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+			//Ignores . and .. folders
+			bool ignore = fileData.cFileName[0] == '.' && (fileData.cFileName[1] == '\0' || (fileData.cFileName[1] == '.' && fileData.cFileName[2] == '\0'));
+
+			if (!ignore) {
+				folders.emplace_back(fileData.cFileName);
+			}
+		}
+
+		success = FindNextFile(searcher, &fileData);
+	}
+	FindClose(searcher);
 }
+
 
 HMENU ContextMenu::createSubmenu(UINT idCmdFirst, UINT idCmdLast) {
 	HMENU submenu = CreatePopupMenu();

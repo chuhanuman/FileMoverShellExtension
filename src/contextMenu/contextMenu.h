@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "shlobj_core.h"
 #include "shobjidl_core.h"
 
 class ContextMenu : public IShellExtInit,
@@ -23,15 +24,19 @@ public:
 
 	HRESULT GetCommandString(UINT_PTR idCmd, UINT uType, UINT* pReserved, CHAR* pszName, UINT cchMax) override;
 private:
+	void loadDataObject();
+
+	void loadFiles(const LPIDA cida);
+
 	void findFolders();
 
 	HMENU createSubmenu(UINT idCmdFirst, UINT idCmdLast);
 
 	long referenceCount = 0;
 	IDataObject* dataObject = nullptr;
+	std::string parentFolderPath;
 	std::vector<std::string> folders;
-
-	const int testOffset = 0;
+	std::vector<std::string> files;
 };
 
 #endif // CONTEXT_MENU_H
