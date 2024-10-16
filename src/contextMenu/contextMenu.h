@@ -35,6 +35,7 @@ private:
 	long referenceCount = 0;
 	IDataObject* dataObject = nullptr;
 	std::string parentFolderPath;
+	std::string destinationParentFolderPath;
 	std::vector<std::string> folders;
 	std::vector<std::string> files;
 };

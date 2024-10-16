@@ -4,7 +4,7 @@
 namespace config {
 	const auto PROGRAM_NAME = "FileMoverShellExtension";
 	const auto SETTINGS_FILENAME = "settings.txt";
-	const auto DEFAULT_SETTING = "\\..";
+	const auto DEFAULT_SETTING = "\\..\\*";
 	const auto GUID = "{2DF05694-A27D-4F6A-911F-887B6D19C7BB}";
 	const auto GUID_W = L"{2DF05694-A27D-4F6A-911F-887B6D19C7BB}";
 	const auto GUID_PREFIX_PATH = "CLSID\\";

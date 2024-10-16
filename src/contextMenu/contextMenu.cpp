@@ -4,6 +4,7 @@
 
 #include "shlwapi.h"
 
+
 #include "..\config.h"
 
 HRESULT ContextMenu::QueryInterface(REFIID riid, void** ppvObject) {
@@ -79,9 +80,46 @@ HRESULT ContextMenu::InvokeCommand(LPCMINVOKECOMMANDINFO lpcmi) {
 		return E_FAIL;
 	}
 
-	const char* filename = folders.at(offset).c_str();
+	const auto source = new char[MAX_PATH * files.size() + 1];
+	size_t sourceLength = 0;
+	for (const auto& filePath : files) {
+		strncpy_s(source + sourceLength, MAX_PATH, filePath.c_str(), filePath.size());
+		sourceLength += filePath.size();
 
-	MessageBox(lpcmi->hwnd, filename, filename, MB_OK);
+		source[sourceLength] = '\0';
+		sourceLength++;
+	}
+	source[sourceLength] = '\0';
+	source[sourceLength + 1] = '\0';
+	sourceLength += 2;
+
+	std::string destinationPath = destinationParentFolderPath;
+	destinationPath.push_back('\\');
+	destinationPath.append(folders.at(offset));
+	char destination[MAX_PATH + 1];
+	strncpy_s(destination, MAX_PATH, destinationPath.c_str(), destinationPath.size());
+	destination[destinationPath.size()] = '\0';
+	destination[destinationPath.size() + 1] = '\0';
+
+	SHFILEOPSTRUCT fileOperation = {
+		lpcmi->hwnd,
+		FO_MOVE,
+		source,
+		destination,
+		FOF_ALLOWUNDO,
+		false,
+		INVALID_HANDLE_VALUE,
+		nullptr
+	};
+
+	const int result = SHFileOperation(&fileOperation);
+	delete[] source;
+	if (result != 0) {
+		const std::string message = "SHFileOperation Error Code " + std::to_string(result);
+		MessageBox(lpcmi->hwnd, message.c_str(), NULL, MB_OK);
+
+		return E_FAIL;
+	}
 
 	return S_OK;
 }
@@ -93,6 +131,7 @@ HRESULT ContextMenu::GetCommandString(UINT_PTR idCmd, UINT uType, UINT* pReserve
 
 void ContextMenu::loadDataObject() {
 	parentFolderPath.clear();
+	destinationParentFolderPath.clear();
 	folders.clear();
 	files.clear();
 
@@ -115,17 +154,6 @@ void ContextMenu::loadDataObject() {
 	}
 
 	ReleaseStgMedium(&stgMedium);
-
-	std::ofstream fout("C:\\Users\\chuha\\source\\repos\\FileMoverShellExtension\\out\\build\\x64-debug\\log.txt", std::ios::app);
-	fout << "Folder List\n";
-	for (const std::string& folder : folders) {
-		fout << "Folder: " << folder << '\n';
-	}
-	fout << "File List\n";
-	for (const std::string& file : files) {
-		fout << "File: " << file << '\n';
-	}
-	fout.close();
 }
 
 void ContextMenu::loadFiles(const LPIDA cida) {
@@ -180,18 +208,19 @@ void ContextMenu::findFolders() {
 	}
 	fin.close();
 
-	std::string destinationPath = parentFolderPath;
-	destinationPath.append(setting);
+	std::string searchPath = parentFolderPath;
+	searchPath.append(setting);
+
+	destinationParentFolderPath = searchPath.substr(0, searchPath.find_last_of("/\\"));
 
 	WIN32_FIND_DATAA fileData;
-	HANDLE searcher = FindFirstFile(destinationPath.c_str(), &fileData);
+	HANDLE searcher = FindFirstFile(searchPath.c_str(), &fileData);
 	success = (searcher != INVALID_HANDLE_VALUE);
 
 	while (success) {
 		if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 			//Ignores . and .. folders
 			bool ignore = fileData.cFileName[0] == '.' && (fileData.cFileName[1] == '\0' || (fileData.cFileName[1] == '.' && fileData.cFileName[2] == '\0'));
-
 			if (!ignore) {
 				folders.emplace_back(fileData.cFileName);
 			}
@@ -201,7 +230,6 @@ void ContextMenu::findFolders() {
 	}
 	FindClose(searcher);
 }
-
 
 HMENU ContextMenu::createSubmenu(UINT idCmdFirst, UINT idCmdLast) {
 	HMENU submenu = CreatePopupMenu();
