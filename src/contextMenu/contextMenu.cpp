@@ -40,6 +40,7 @@ HRESULT ContextMenu::Initialize(PCIDLIST_ABSOLUTE pidlFolder, IDataObject* pData
 		dataObject->Release();
 	}
 	dataObject = pDataObject;
+	dataObject->AddRef();
 
 	return S_OK;
 }
@@ -160,10 +161,15 @@ void ContextMenu::loadFiles(const LPIDA cida) {
 	char path[MAX_PATH];
 	bool success;
 
+	if (cida->cidl == 0) {
+		return;
+	}
+
 	const auto fileList = reinterpret_cast<LPBYTE>(cida);
 	PCIDLIST_ABSOLUTE parentIdList = nullptr;
 	for (unsigned int i = 0; i < cida->cidl + 1; i++) {
-		auto itemIdList = reinterpret_cast<PCIDLIST_ABSOLUTE>(fileList + cida->aoffset[i]);
+		auto itemIdList = reinterpret_cast<LPCITEMIDLIST>(fileList + cida->aoffset[i]);
+
 		if (i == 0) {
 			parentIdList = itemIdList;
 		} else {
@@ -175,12 +181,14 @@ void ContextMenu::loadFiles(const LPIDA cida) {
 			return;
 		}
 
-		if (i == 0) {
-			parentFolderPath = path;
-		} else {
+		if (i != 0) {
 			files.emplace_back(path);
 		}
 	}
+
+	// In the case more than 16 items are selected, parentIdList isn't the parent folder of the files and instead is the
+	// desktop, so we get the parent folder path from one of the files instead.
+	parentFolderPath = files.back().substr(0, files.back().find_last_of("/\\"));
 }
 
 void ContextMenu::findFolders() {
